@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电子收音机 - 不伤眼的收音机</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #0c0c1d 0%, #1a1a2e 100%);
+            color: #e0e0ff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .cosmic-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .star {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            background: rgba(20, 20, 40, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow:
+                0 0 50px rgba(0, 150, 255, 0.3),
+                inset 0 0 20px rgba(100, 150, 255, 0.1);
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg,
+                #00ccff, #0066ff, #9900ff, #ff00cc);
+            z-index: -1;
+            border-radius: 22px;
+            opacity: 0.3;
+            animation: borderGlow 4s linear infinite;
+        }
+
+        @keyframes borderGlow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00ccff, #0066ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 20px rgba(0, 102, 255, 0.5);
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .upload-area {
+            border: 3px dashed rgba(0, 150, 255, 0.4);
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(10, 15, 35, 0.3);
+        }
+
+        .upload-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+
+        .upload-icon svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 10px rgba(0, 150, 255, 0.5));
+        }
+
+        .upload-icon::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 150, 255, 0.2) 0%, transparent 70%);
+            animation: pulse 2s infinite;
+            z-index: -1;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #aaccff;
+        }
+
+        .upload-subtext {
+            color: #8899cc;
+            font-size: 0.9rem;
+        }
+
+        /* 版本信息样式 */
+        #versionInfo {
+            text-align: center;
+            color: #88ccff;
+            margin-top: 6px;
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        .progress-container {
+            margin-top: 40px;
+            display: none;
+        }
+
+        .progress-container.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #aaccff;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00ccff, #0066ff);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 20px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+        }
+
+        .data-flow-container {
+            height: 200px;
+            margin: 40px 0;
+            position: relative;
+            display: none;
+        }
+
+        .data-flow-container.active {
+            display: block;
+        }
+
+        .phone, .cloud {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .phone {
+            left: 10%;
+        }
+
+        .cloud {
+            right: 10%;
+        }
+
+        .phone-icon, .cloud-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 10px rgba(0, 200, 255, 0.7));
+        }
+
+        .phone-label, .cloud-label {
+            font-size: 0.8rem;
+            color: #88ccff;
+        }
+
+        .network-path {
+            position: absolute;
+            top: 50%;
+            left: 15%;
+            right: 15%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00aaff, #0066ff, #00aaff, transparent);
+            transform: translateY(-50%);
+        }
+
+        .network-path::after {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, rgba(0, 170, 255, 0.1), transparent);
+        }
+
+        .data-particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #00ccff;
+            top: 50%;
+            transform: translateY(-50%);
+            filter: drop-shadow(0 0 5px #00ccff);
+            opacity: 0;
+        }
+
+        .encryption-message {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 1rem;
+            color: #88ddff;
+            display: none;
+            animation: fadeIn 1s ease;
+        }
+
+        .encryption-message.active {
+            display: block;
+        }
+
+        .encryption-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+            display: block;
+            animation: lockPulse 2s infinite;
+        }
+
+        @keyframes lockPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .file-list {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .file-list.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: rgba(30, 35, 60, 0.5);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 3px solid #00ccff;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .file-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            color: #00ccff;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .file-size {
+            font-size: 0.8rem;
+            color: #8899cc;
+        }
+
+        .file-status {
+            color: #00ff88;
+            font-size: 0.9rem;
+        }
+
+        .status-icon {
+            animation: spin 2s linear infinite;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hint {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #8899cc;
+            font-style: italic;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                width: 95%;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .phone, .cloud {
+                width: 60px;
+                height: 60px;
+            }
+
+            .phone-icon, .cloud-icon {
+                font-size: 30px;
+            }
+
+            .network-path {
+                left: 20%;
+                right: 20%;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- 星空背景 -->
+<div class="cosmic-bg" id="cosmicBg"></div>
+
+<div class="container">
+    <!-- 上传区域 -->
+    <div class="upload-area" id="uploadArea">
+        <h2>调台方便，手机不费电</h2>
+    </div>
+
+    <!-- 版本信息显示 -->
+    <div id="versionInfo">版本：加载中...</div>
+
+    <!-- 数据流动画 -->
+    <div class="data-flow-container" id="dataFlow">
+        <div class="phone">
+            <div class="phone-icon">📱</div>
+            <div class="phone-label">手机遥控器</div>
+        </div>
+
+        <div class="network-path" id="networkPath">
+            <!-- 数据粒子会通过JS动态添加 -->
+        </div>
+
+        <div class="cloud">
+            <div class="cloud-icon">📻️</div>
+            <div class="cloud-label">电子收音机</div>
+        </div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-label">
+            <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <!-- 加密信息 -->
+    <div class="encryption-message" id="encryptionMessage">
+        <div>联系邮箱:358101058@qq.com</div>
+    </div>
+
+    <!-- 文件列表 -->
+    <div class="file-list" id="fileList">
+        <!-- 文件项会通过JS动态添加 -->
+    </div>
+
+    <div class="hint"></div>
+</div>
+
+<script>
+    // 创建星空背景
+    function createStars() {
+        const cosmicBg = document.getElementById('cosmicBg');
+        for (let i = 0; i < 100; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.width = `${Math.random() * 3 + 1}px`;
+            star.style.height = star.style.width;
+            star.style.left = `${Math.random() * 100}%`;
+            star.style.top = `${Math.random() * 100}%`;
+            star.style.animationDelay = `${Math.random() * 3}s`;
+            cosmicBg.appendChild(star);
+        }
+    }
+
+    // 显示动画效果
+    function showAnimation() {
+        const uploadArea = document.getElementById('uploadArea');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressPercent = document.getElementById('progressPercent');
+        const dataFlow = document.getElementById('dataFlow');
+        const encryptionMessage = document.getElementById('encryptionMessage');
+
+        // 激活上传区域
+        uploadArea.classList.add('active');
+        progressContainer.classList.add('active');
+        dataFlow.classList.add('active');
+        progressFill.style.width = '0%';
+        progressPercent.textContent = '0%';
+
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 10 + 8; // 随机进度增加
+            if (progress > 100) progress = 100;
+
+            progressFill.style.width = `${progress}%`;
+            progressPercent.textContent = `${Math.round(progress)}%`;
+
+            // 创建数据粒子
+            if (progress < 100) {
+                createDataParticle(progress);
+            }
+
+            if (progress === 100) {
+                clearInterval(interval);
+
+                // 显示加密信息
+                setTimeout(() => {
+                    encryptionMessage.classList.add('active');
+                }, 500);
+
+                // 创建云端存储动画
+                createCloudStorageAnimation();
+
+                // 通知Android应用上传完成
+                if (window.AndroidInterface) {
+                    setTimeout(() => {
+                        AndroidInterface.onUploadComplete();
+                    }, 2000);
+                }
+            }
+        }, 80);
+    }
+
+    // 创建数据粒子动画
+    function createDataParticle(progress) {
+        const networkPath = document.getElementById('networkPath');
+        const particle = document.createElement('div');
+        particle.className = 'data-particle';
+
+        // 随机颜色
+        const colors = ['#00ccff', '#0066ff', '#9900ff', '#ff00cc'];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.background = color;
+        particle.style.boxShadow = `0 0 10px ${color}`;
+
+        // 随机大小
+        const size = Math.random() * 4 + 3;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+
+        // 设置起始位置（根据进度）
+        const startPosition = Math.max(5, progress - 5);
+        particle.style.left = `${startPosition}%`;
+
+        networkPath.appendChild(particle);
+
+        // 动画
+        const duration = 1 + Math.random();
+        particle.animate([
+            {
+                opacity: 1,
+                transform: 'translateY(-50%) scale(1)',
+                left: `${startPosition}%`
+            },
+            {
+                opacity: 0.7,
+                transform: 'translateY(-50%) scale(1.2)',
+                left: `${startPosition + 10}%`
+            },
+            {
+                opacity: 0,
+                transform: 'translateY(-50%) scale(0.5)',
+                left: '95%'
+            }
+        ], {
+            duration: duration * 1000,
+            easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+        });
+
+        // 移除粒子
+        setTimeout(() => {
+            if (particle.parentNode) {
+                particle.parentNode.removeChild(particle);
+            }
+        }, duration * 1000);
+    }
+
+    // 创建云端存储动画
+    function createCloudStorageAnimation() {
+        const cloud = document.querySelector('.cloud');
+
+        // 创建存储刻痕动画
+        for (let i = 0; i < 5; i++) {
+            setTimeout(() => {
+                const spark = document.createElement('div');
+                spark.style.position = 'absolute';
+                spark.style.width = '4px';
+                spark.style.height = '4px';
+                spark.style.background = '#00ff88';
+                spark.style.borderRadius = '50%';
+                spark.style.top = '50%';
+                spark.style.left = '50%';
+                spark.style.filter = 'drop-shadow(0 0 5px #00ff88)';
+                cloud.appendChild(spark);
+
+                // 随机方向扩散
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 20 + Math.random() * 20;
+                const targetX = Math.cos(angle) * distance;
+                const targetY = Math.sin(angle) * distance;
+
+                spark.animate([
+                    {
+                        opacity: 1,
+                        transform: 'translate(-50%, -50%) scale(1)',
+                        offset: 0
+                    },
+                    {
+                        opacity: 0.8,
+                        transform: `translate(calc(-50% + ${targetX}px), calc(-50% + ${targetY}px)) scale(1.5)`,
+                        offset: 0.5
+                    },
+                    {
+                        opacity: 0,
+                        transform: `translate(calc(-50% + ${targetX}px), calc(-50% + ${targetY}px)) scale(0)`,
+                        offset: 1
+                    }
+                ], {
+                    duration: 1000,
+                    easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+                });
+
+                // 移除火花
+                setTimeout(() => {
+                    if (spark.parentNode) {
+                        spark.parentNode.removeChild(spark);
+                    }
+                }, 500);
+            }, i * 100);
+        }
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        createStars();
+        showAnimation();
+    });
+</script>
+</body>
+</html>

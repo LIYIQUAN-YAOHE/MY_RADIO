@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .form-container { max-width: 300px; margin: 0 auto; }
+        .tab { display: none; }
+        .active { display: block; }
+        input { width: 100%; padding: 10px; margin: 8px 0; }
+        button { background-color: #4CAF50; color: white; padding: 14px 20px; border: none; cursor: pointer; width: 100%; }
+        .error { color: red; font-size: 12px; }
+        .login { color: red;  }
+        .success { color: green; font-size: 14px; text-align: center; }
+        .button-container { display: flex; gap: 12px; padding: 10px;}
+        .account-info {
+            color: #333;
+            font-size: 12px;
+            margin-top: 5px;
+            padding: 5px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<div  class="card">
+    <h2> 欢迎注册哈哈游</h2>
+    <ul style="margin: 1rem 0; padding-left: 1.5rem;">
+        <li>规划旅游线路</li>
+        <li>回味走过线路</li>
+        <li>记录美好回忆</li>
+        <div id="display_login" class="login" ></div>
+    </ul>
+</div>
+
+<body>
+<div class="form-container">
+    <!-- 登录表单保持不变 -->
+    <div id="loginTab" class="tab active ">
+        <h2>填写信息</h2>
+
+        <!-- 账号输入区域 -->
+        <div id="accountSection">
+            <input type="tel" id="inputBox" placeholder="账号:">
+            <div id="phoneError" class="error"></div>
+            <div id="currentAccount" class="account-info" style="display: none;">
+<!--                当前账号: <span id="currentAccountValue"></span>-->
+            </div>
+        </div>
+
+        <!-- 密码输入区域 -->
+        <input type="text" id="inputBox2" placeholder="密码:">
+        <div id="passwordError" class="error"></div>
+
+        <!-- 确认密码输入区域 -->
+        <input type="text" id="inputBox3" placeholder="确认密码:">
+        <div id="passwordError3" class="error"></div>
+
+        <!-- 注册状态显示 -->
+        <div id="registerStatus" class="success" style="margin-top: 10px; display: none;"></div>
+
+        <div class="button-container">
+            <button id="sendButton" onclick="sendMessage()">立即注册</button>
+            <button id="sendButton2" onclick="goBack()">退出</button>
+        </div>
+<!--        <p> <a href="account_number.html">返回主页</a ></p >-->
+    </div>
+
+    <div id="messageContainer"></div>
+
+</div>
+
+<script>
+    // 页面加载时检查是否有已保存的账号
+    document.addEventListener('DOMContentLoaded', function() {
+        // 向Java请求已保存的账号信息
+        try {
+            if (typeof Android !== 'undefined' && Android.getSavedAccount) {
+                const savedAccount = Android.getSavedAccount();
+                if (savedAccount && savedAccount !== "") {
+                    showSavedAccount(savedAccount);
+                }
+            }
+        } catch (error) {
+            // 如果Android接口不可用，尝试从localStorage获取
+            const savedUsername = localStorage.getItem('registered_username');
+            if (savedUsername) {
+                showSavedAccount(savedUsername);
+            }
+        }
+    });
+
+    // 显示已保存的账号信息
+    function showSavedAccount(username) {
+        const accountInput = document.getElementById('inputBox');
+        const accountInfo = document.getElementById('currentAccount');
+        const accountValue = document.getElementById('currentAccountValue');
+        const passwordInput = document.getElementById('inputBox2');
+        const confirmInput = document.getElementById('inputBox3');
+
+        // 显示当前账号
+        accountInput.value = username;
+        accountValue.textContent = username;
+        accountInfo.style.display = 'block';
+
+        // 密码框保持正常可输入状态
+        passwordInput.placeholder = '请输入密码（留空则不修改）';
+        confirmInput.placeholder = '请确认密码（留空则不修改）';
+
+        // 修改按钮文字为"更新信息"
+        document.getElementById('sendButton').textContent = '更新信息';
+
+        // 显示提示信息
+        const displayLogin = document.getElementById('display_login');
+        displayLogin.textContent = '您已有账号，如需修改密码请填写新密码';
+        displayLogin.style.color = 'blue';
+    }
+
+    let messageCount = 0;
+    function updateContent(text) {  //Java发过来的
+        const container = document.getElementById('messageContainer');
+        const messageDiv = document.createElement('div');
+          //来自Java第一次启动的信息
+        messageDiv.className = `message-bubble android-message`;
+        messageDiv.innerHTML = `
+            <div class="message-content">${text}</div>
+        `;
+
+        // 交替使用不同动画
+        messageDiv.style.animation = messageCount % 2 === 0 ? 'slideIn 0.3s' : 'pulse 0.5s';
+
+        container.appendChild(messageDiv);
+        scrollToBottom();
+        messageCount++;
+    }
+
+     //由Java发过来的
+    function receiveFromAndroid(text) { //接收动态发过来的
+        const errorEl = document.getElementById('display_login');
+        errorEl.textContent = text;
+    }
+
+    function goBack() {
+        // 先显示返回提示
+        showRegisterStatus('正在返回...', false);
+
+        // 延迟执行返回，让用户看到提示
+        setTimeout(function() {
+            try {
+                Android.sendToAndroid6("goBack");
+            } catch (error) {
+                // Android接口不可用
+                console.log('Android接口不可用');
+            }
+        }, 500);
+    }
+
+    function sendMessage() {
+        const accountInput = document.getElementById('inputBox');
+        const passwordInput = document.getElementById('inputBox2');
+        const confirmInput = document.getElementById('inputBox3');
+        const message = accountInput.value.trim();
+        const message2 = passwordInput.value.trim();
+        const message3 = confirmInput.value.trim();
+
+        // 清空之前的错误信息
+        document.getElementById('phoneError').textContent = '';
+        document.getElementById('passwordError').textContent = '';
+        document.getElementById('passwordError3').textContent = '';
+        document.getElementById('registerStatus').style.display = 'none';
+
+        // 检查是否已有账号
+        const hasAccount = document.getElementById('currentAccount').style.display === 'block';
+
+        if (hasAccount) {
+            // 更新模式（已有账号）
+            if (!validatePhone(message)) return;
+
+            // 如果密码不为空，需要验证密码
+            if (message2 !== '') {
+                if (!validatePassword(message2)) return;
+                if (!validateConfirm(message2, message3)) return;
+            }
+
+            // 显示更新中状态
+            showRegisterStatus('正在更新信息...', false);
+
+            try {
+                // 调用Java方法更新信息
+                if (message2 !== '') {
+                    // 有密码更新，发送账号和密码
+                    Android.updateAccountInfo(message, message2);
+                } else {
+                    // 只更新账号（或不做任何修改）
+                    Android.updateAccountOnly(message);
+                }
+
+                // 显示更新成功
+                showRegisterStatus('信息更新成功！正在返回...', true);
+
+                // 延迟2秒后自动返回Java界面
+                setTimeout(function() {
+                    goBack();
+                }, 2000);
+
+            } catch (error) {
+                // 如果Android接口不可用，使用本地存储
+                localStorage.setItem('registered_username', message);
+                if (message2 !== '') {
+                    localStorage.setItem('registered_password', message2);
+                }
+                showRegisterStatus('信息更新成功！(本地存储)', true);
+
+                // 延迟2秒后返回
+                setTimeout(function() {
+                    goBack();
+                }, 2000);
+            }
+
+        } else {
+            // 新注册模式
+            if (!validatePhone(message)) return;
+            if (!validatePassword(message2)) return;
+            if (!validateConfirm(message2, message3)) return;
+
+            if (message) {
+                // 显示注册中状态
+                showRegisterStatus('正在注册...', false);
+
+                // 调用Java方法保存账号和密码
+                try {
+                    Android.sendToAndroid3(message);  // 发送账号
+                    Android.sendToAndroid4(message2); // 发送密码
+
+                    // 显示注册成功
+                    showRegisterStatus('注册成功！正在返回...', true);
+
+                    // 延迟2秒后自动返回Java界面
+                    setTimeout(function() {
+                        goBack();
+                    }, 2000);
+
+                } catch (error) {
+                    // 如果Android接口不可用，使用本地存储
+                    localStorage.setItem('registered_username', message);
+                    localStorage.setItem('registered_password', message2);
+                    showRegisterStatus('注册成功！(本地存储)', true);
+
+                    // 延迟2秒后返回
+                    setTimeout(function() {
+                        goBack();
+                    }, 2000);
+                }
+
+                // 清空输入框
+                accountInput.value = '';
+                passwordInput.value = '';
+                confirmInput.value = '';
+            }
+        }
+    }
+
+    // 显示注册状态
+    function showRegisterStatus(message, isSuccess) {
+        const statusEl = document.getElementById('registerStatus');
+        statusEl.textContent = message;
+        statusEl.style.color = isSuccess ? 'green' : 'blue';
+        statusEl.style.display = 'block';
+    }
+
+    // 验证账号格式
+    function validatePhone(message) {
+        const errorEl = document.getElementById('phoneError');
+        if (!message) {
+            errorEl.textContent = '请输入账号';
+            return false;
+        }
+        errorEl.textContent = '';
+        return true;
+    }
+
+    // 验证密码强度
+    function validatePassword(message2) {
+        const errorEl = document.getElementById('passwordError');
+        if (message2 !== '' && message2.length < 6) {
+            errorEl.textContent = '密码长度不能少于6位';
+            return false;
+        }
+        errorEl.textContent = '';
+        return true;
+    }
+
+    // 验证确认密码
+    function validateConfirm(message2, message3) {
+        const errorEl = document.getElementById('passwordError3');
+        if (message2 !== '' && message2 !== message3) {
+            errorEl.textContent = '两次输入的密码不一致';
+            return false;
+        }
+        errorEl.textContent = '';
+        return true;
+    }
+
+    // 回车键发送
+    document.getElementById('inputBox').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    document.getElementById('inputBox3').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+</script>
+</body>
+</html>

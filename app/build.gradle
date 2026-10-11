@@ -1,0 +1,247 @@
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+// ===================================================
+// 辅助函数：从 strings.xml 读取应用名称
+// ===================================================
+def getAppNameFromResources() {
+    def xmlFile = file('src/main/res/values/strings.xml')
+    if (!xmlFile.exists()) {
+        return "My_Radio"
+    }
+    def resources = new XmlParser().parse(xmlFile)
+    def appNameNode = resources.string.find { it.@name == 'app_name' }
+    return appNameNode ? appNameNode.text().trim() : "My_Radio"
+}
+
+// 获取应用名称
+def appName = getAppNameFromResources()
+
+// ===================================================
+// 版本管理工具函数
+// ===================================================
+
+/**
+ * 加载版本属性
+ */
+def loadVersionProperties() {
+    def propFile = file('../version.properties')
+    def props = new Properties()
+
+    if (propFile.exists()) {
+        propFile.withInputStream { stream ->
+            props.load(stream)
+        }
+        return [
+                major: props.getProperty('MAJOR', '1').toInteger(),
+                minor: props.getProperty('MINOR', '0').toInteger(),
+                patch: props.getProperty('PATCH', '0').toInteger()
+        ]
+    } else {
+        def defaultProps = [major: 1, minor: 0, patch: 0]
+        saveVersionProperties(defaultProps)
+        return defaultProps
+    }
+}
+
+/**
+ * 保存版本属性
+ */
+def saveVersionProperties(versionProps) {
+    def propFile = file('../version.properties')
+    def props = new Properties()
+    props.setProperty('MAJOR', versionProps.major.toString())
+    props.setProperty('MINOR', versionProps.minor.toString())
+    props.setProperty('PATCH', versionProps.patch.toString())
+    propFile.withWriter { writer ->
+        props.store(writer, 'Auto-generated version properties')
+    }
+}
+
+/**
+ * 自动递增版本号
+ */
+def autoIncrementVersion() {
+    def versionProps = loadVersionProperties()
+    versionProps.patch++
+
+    // 进位逻辑
+    if (versionProps.patch >= 100) {
+        versionProps.patch = 0
+        versionProps.minor++
+
+        if (versionProps.minor >= 100) {
+            versionProps.minor = 0
+            versionProps.major++
+        }
+    }
+
+    saveVersionProperties(versionProps)
+    println "版本号已自动更新至: ${getVersionName(versionProps)}"
+    return versionProps
+}
+
+/**
+ * 获取版本名称
+ */
+def getVersionName(versionProps) {
+    return "${versionProps.major}.${versionProps.minor}.${versionProps.patch}"
+}
+
+/**
+ * 获取版本代码
+ */
+def getVersionCode(versionProps) {
+    return versionProps.major * 10000 + versionProps.minor * 100 + versionProps.patch
+}
+
+/**
+ * 手动设置版本号
+ */
+def writeVersion(majorVal, minorVal, patchVal) {
+    def versionProps = [major: majorVal, minor: minorVal, patch: patchVal]
+    saveVersionProperties(versionProps)
+    println "版本号已手动设置为: ${getVersionName(versionProps)}"
+    return versionProps
+}
+
+// ===================================================
+// 版本号预加载和条件递增逻辑
+// ===================================================
+
+def currentVersion = loadVersionProperties()
+
+def shouldIncrementVersion = {
+    def tasks = gradle.startParameter.taskNames
+    return tasks.any { it.contains('assembleRelease') }
+}()
+
+if (shouldIncrementVersion) {
+    currentVersion = autoIncrementVersion()
+    println "配置阶段: 版本号已递增至 ${getVersionName(currentVersion)}"
+}
+
+android {
+    namespace 'com.lyqsmart.my_radio'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.lyqsmart.my_radio"
+        minSdk 24
+        targetSdk 35
+
+        // ---- 版本管理 ----
+        versionCode getVersionCode(currentVersion)
+        versionName "${appName} v${getVersionName(currentVersion)}"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    // APK 输出文件名自定义
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "${variant.versionName}.apk"
+        }
+    }
+}
+
+dependencies {
+
+    implementation libs.appcompat
+    implementation libs.material
+    implementation libs.activity
+    implementation libs.constraintlayout
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+    implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+// ===================================================
+// 自定义 Gradle 任务
+// ===================================================
+task showCurrentVersion {
+    doLast {
+        def versionProps = loadVersionProperties()
+        println "当前版本: ${getVersionName(versionProps)} (${getVersionCode(versionProps)})"
+        println "完整版本名: ${appName} v${getVersionName(versionProps)}"
+    }
+    group = 'versioning'
+    description = '显示当前版本信息'
+}
+
+task resetVersion {
+    doLast {
+        writeVersion(1, 0, 0)
+        println "版本号已重置为: 1.0.0"
+    }
+    group = 'versioning'
+    description = '重置版本号为 1.0.0'
+}
+
+task setVersion {
+    doLast {
+        def majorVal = project.hasProperty('major') ? project.property('major').toInteger() : 1
+        def minorVal = project.hasProperty('minor') ? project.property('minor').toInteger() : 0
+        def patchVal = project.hasProperty('patch') ? project.property('patch').toInteger() : 0
+        writeVersion(majorVal, minorVal, patchVal)
+    }
+    group = 'versioning'
+    description = '手动设置版本号，使用 -Pmajor=x -Pminor=y -Ppatch=z 参数'
+}
+
+task incrementPatch {
+    doLast {
+        autoIncrementVersion()
+        println "版本号已递增"
+    }
+    group = 'versioning'
+    description = '手动递增版本号'
+}
+
+// ===================================================
+// 构建后任务 - 显示构建信息
+// ===================================================
+afterEvaluate {
+    tasks.matching { it.name.startsWith('assemble') && it.name.contains('Release') }.each { task ->
+        task.doLast {
+            def versionProps = loadVersionProperties()
+            println "=========================================="
+            println "构建完成: ${task.name}"
+            println "版本: ${appName} v${getVersionName(versionProps)} (${getVersionCode(versionProps)})"
+            println "时间: ${new Date()}"
+            println "输出目录: app/build/outputs/apk/"
+            println "=========================================="
+        }
+    }
+}
+
+// ===================================================
+// 构建前检查 - 确保版本文件存在
+// ===================================================
+task checkVersionFile {
+    doFirst {
+        def versionFile = file('../version.properties')
+        if (!versionFile.exists()) {
+            println "创建版本文件: ${versionFile.absolutePath}"
+            writeVersion(1, 0, 0)
+        }
+    }
+}
+
+preBuild.dependsOn checkVersionFile
